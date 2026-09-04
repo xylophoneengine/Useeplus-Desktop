@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from PySide6.QtCore import Qt, QPointF, QRectF, Signal
-from PySide6.QtGui import QImage, QPixmap, QPen, QColor, QFont, QPainter, QPolygonF
+from PySide6.QtGui import QImage, QPixmap, QPen, QColor, QFont, QPainter
 from PySide6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QGraphicsItemGroup,
                                QGraphicsLineItem, QGraphicsRectItem, QGraphicsPathItem,
                                QGraphicsSimpleTextItem)
@@ -54,13 +54,15 @@ class MicroscopeView(QGraphicsView):
         self._preview: QGraphicsItemGroup | None = None
         self._fitted = False
         self._panning = False
+        self._frame_size: tuple[int, int] | None = None
 
     # ---- frame ---------------------------------------------------------
     def set_frame(self, img: QImage) -> None:
         self._pix.setPixmap(QPixmap.fromImage(img))
-        rect = QRectF(0, 0, img.width(), img.height())
-        if self._scene.sceneRect() != rect:
-            self._scene.setSceneRect(rect)
+        size = (img.width(), img.height())
+        if size != self._frame_size:
+            self._frame_size = size
+            self._scene.setSceneRect(QRectF(0, 0, *size))
             self._update_scale_bar()
             self._fitted = False
         if not self._fitted:
@@ -217,7 +219,9 @@ class MicroscopeView(QGraphicsView):
 
     def tool_double_click(self, x: float, y: float) -> None:
         if self.tool == Tool.POLYLINE:
-            pts = self._pts + [(x, y)]
+            pts = list(self._pts)
+            if not pts or pts[-1] != (x, y):
+                pts.append((x, y))
             self._cancel_in_progress()
             if len(pts) >= 2:
                 self._commit("polyline", pts)
@@ -228,7 +232,7 @@ class MicroscopeView(QGraphicsView):
         return p.x(), p.y()
 
     def mousePressEvent(self, e) -> None:
-        if self.tool == Tool.NONE:   # Pan tool: left-drag pans via ScrollHandDrag
+        if self.tool == Tool.NONE and e.button() == Qt.MouseButton.LeftButton:   # Pan tool: left-drag pans via ScrollHandDrag
             self._panning = True
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
             super().mousePressEvent(e)

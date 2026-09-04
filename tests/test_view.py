@@ -61,3 +61,23 @@ def test_scale_bar_visible_only_with_calibration():
     assert v.scale_bar_visible() and v.scale_bar_label() == "50 µm"
     v.set_calibration(None)
     assert not v.scale_bar_visible()
+
+
+def test_double_click_on_last_vertex_does_not_duplicate():
+    v = make_view()
+    v.set_tool(Tool.POLYLINE)
+    v.tool_press(0, 0); v.tool_release(0, 0)
+    v.tool_press(3, 4); v.tool_release(3, 4)
+    v.tool_press(6, 8); v.tool_release(6, 8)      # what a real double-click's first press does
+    v.tool_double_click(6, 8)
+    m = v.measurements()
+    assert len(m) == 1 and m[0]["points"] == [[0.0, 0.0], [3.0, 4.0], [6.0, 8.0]] and m[0]["value_px"] == 10.0
+
+
+def test_scale_bar_appears_when_calibration_set_before_first_frame():
+    _app()
+    v = MicroscopeView()
+    v.set_calibration(Calibration("x", 1.0))
+    assert not v.scale_bar_visible()              # no frame yet
+    v.set_frame(QImage(480, 640, QImage.Format.Format_RGB888))
+    assert v.scale_bar_visible() and v.scale_bar_label() == "50 µm"
