@@ -6,6 +6,7 @@ from microscope.mainwindow import MainWindow
 from microscope.capture import CaptureThread
 from microscope.calibration import CalibrationStore, Calibration
 from microscope.useeplus import BUTTON_FLAG
+from microscope.view import Tool
 
 
 def _app():
@@ -82,3 +83,43 @@ def test_params_persist_in_settings(tmp_path):
     w.close()
     w2, _ = make_win(tmp_path)
     assert w2.params.brightness == 33
+
+
+def test_calibration_wizard_cancelled_by_tool_change_does_not_hijack_later_line(tmp_path):
+    w, store = make_win(tmp_path)
+    w.on_frame(frame(), 0)
+    w.start_calibration()
+    assert w._calibrating
+    w._on_tool(Tool.LINE)             # user switches tool → wizard cancelled
+    assert not w._calibrating
+    w.view.tool_press(0, 0); w.view.tool_release(30, 40)   # ordinary measurement
+    assert store.calibrations == [] and len(w.view.measurements()) == 1
+
+
+def test_calibration_wizard_start_twice_is_idempotent(tmp_path):
+    w, _ = make_win(tmp_path)
+    w.start_calibration(); w.start_calibration()
+    assert w._calibrating
+    w._cancel_calibration()
+    assert not w._calibrating
+
+
+def test_record_uses_measured_fps(tmp_path):
+    w, _ = make_win(tmp_path)
+    w.on_frame(frame(), 0)
+    w._on_fps(12.5)
+    w.toggle_record()
+    for i in range(4): w.on_frame(frame(i), 0)
+    w.toggle_record()
+    import cv2
+    cap = cv2.VideoCapture(str(next((tmp_path / "out").glob("*.mp4"))))
+    assert round(cap.get(cv2.CAP_PROP_FPS), 1) == 12.5
+    cap.release()
+
+
+def test_param_change_while_frozen_reprocesses_frozen_frame(tmp_path):
+    w, _ = make_win(tmp_path)
+    w.on_frame(frame(100), 0)
+    w.freeze_cb.setChecked(True)
+    w.brightness.setValue(50)
+    assert w.last_frame[0, 0, 0] == 150

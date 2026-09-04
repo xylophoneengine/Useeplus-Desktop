@@ -42,9 +42,12 @@ class MainWindow(QMainWindow):
         self.recorder = Recorder()
         self.params = Params.from_dict(json.loads(self.settings.value("params", "{}")))
         self.last_frame: np.ndarray | None = None
+        self._raw_frame: np.ndarray | None = None
         self._button_was_down = False
         self._last_button_snap = 0.0
         self._serial = ""
+        self._calibrating = False
+        self._fps: float = 0.0
 
         self.view = MicroscopeView()
         self.setCentralWidget(self.view)
@@ -57,7 +60,7 @@ class MainWindow(QMainWindow):
         capture.frameReady.connect(self.on_frame)
         capture.connected.connect(self._on_connected)
         capture.disconnected.connect(self._on_disconnected)
-        capture.fps.connect(lambda f: self.fps_label.setText(f"{f:.1f} fps"))
+        capture.fps.connect(self._on_fps)
         if (g := self.settings.value("geometry")) is not None:
             self.restoreGeometry(g)
 
@@ -103,9 +106,9 @@ class MainWindow(QMainWindow):
         for name, tool in (("Pan", Tool.NONE), ("Line", Tool.LINE), ("Poly", Tool.POLYLINE),
                            ("Rect", Tool.RECT), ("Angle", Tool.ANGLE)):
             b = QPushButton(name); b.setCheckable(True); b.setChecked(tool == Tool.NONE)
-            b.clicked.connect(lambda _=False, t=tool: self.view.set_tool(t))
+            b.clicked.connect(lambda _=False, t=tool: self._on_tool(t))
             self.tool_group.addButton(b); m.addWidget(b)
-        clear = QPushButton("Clear"); clear.clicked.connect(self.view.clear_measurements); m.addWidget(clear)
+        clear = QPushButton("Clear"); clear.clicked.connect(self._on_clear); m.addWidget(clear)
         lay.addWidget(meas)
 
         capg = QGroupBox("Capture"); k = QVBoxLayout(capg)
@@ -138,7 +141,8 @@ class MainWindow(QMainWindow):
         setattr(self.params, name, value)
         self.settings.setValue("params", json.dumps(self.params.to_dict()))
         self.settings.sync()
-        if self.freeze_cb.isChecked() and self.last_frame is not None:
+        if self.freeze_cb.isChecked() and self._raw_frame is not None:
+            self.last_frame = apply(self._raw_frame, self.params)
             self.view.set_frame(_to_qimage(self.last_frame))
 
     def _reset_params(self) -> None:
@@ -159,6 +163,7 @@ class MainWindow(QMainWindow):
         self._button_was_down = down
         if self.freeze_cb.isChecked():
             return
+        self._raw_frame = frame
         self.last_frame = apply(frame, self.params)
         self.view.set_frame(_to_qimage(self.last_frame))
         self.recorder.write(self.last_frame)
@@ -200,7 +205,7 @@ class MainWindow(QMainWindow):
         self.output_dir.mkdir(parents=True, exist_ok=True)
         h, w = self.last_frame.shape[:2]
         try:
-            self.recorder.start(self.output_dir / f"{self._stamp()}.mp4", (w, h))
+            self.recorder.start(self.output_dir / f"{self._stamp()}.mp4", (w, h), fps=self._fps or 16.0)
         except RuntimeError as e:
             QMessageBox.warning(self, "Record", str(e)); self.rec_btn.setChecked(False); return
         self.rec_btn.setChecked(True); self.rec_btn.setText("Stop"); self.rec_label.setText("● REC")
@@ -209,6 +214,18 @@ class MainWindow(QMainWindow):
         d = QFileDialog.getExistingDirectory(self, "Output folder", str(self.output_dir))
         if d:
             self.output_dir = Path(d); self.out_label.setText(d); self.settings.setValue("output_dir", d)
+
+    def _on_fps(self, f: float) -> None:
+        self._fps = f
+        self.fps_label.setText(f"{f:.1f} fps")
+
+    def _on_tool(self, t: Tool) -> None:
+        self._cancel_calibration()
+        self.view.set_tool(t)
+
+    def _on_clear(self) -> None:
+        self._cancel_calibration()
+        self.view.clear_measurements()
 
     # ---- calibration -----------------------------------------------------
     def refresh_calibrations(self) -> None:
@@ -233,27 +250,39 @@ class MainWindow(QMainWindow):
 
     def start_calibration(self) -> None:
         """Wizard: user draws one LINE over a known length, then we ask for the µm value."""
+        if self._calibrating:
+            return
+        self._calibrating = True
         self.view.clear_measurements()
         self.view.set_tool(Tool.LINE)
         self.status_msg.setText("Calibrate: draw a line over a known length, then release")
         self.view.measurementsChanged.connect(self._finish_calibration)
 
+    def _cancel_calibration(self) -> None:
+        if self._calibrating:
+            self.view.measurementsChanged.disconnect(self._finish_calibration)
+            self._calibrating = False
+            self.status_msg.setText("")
+
     def _finish_calibration(self) -> None:
+        if not self._calibrating:
+            return
+        self.view.measurementsChanged.disconnect(self._finish_calibration)
+        self._calibrating = False
         m = self.view.measurements()
         if not m or m[-1]["type"] != "line":
             return
-        self.view.measurementsChanged.disconnect(self._finish_calibration)
         px = m[-1]["value_px"]
         um, ok = QInputDialog.getDouble(self, "Calibrate", f"Line is {px:.1f} px. Known length in µm:", 1000.0, 0.001, 1e9, 3)
         if not ok:
-            return
+            self.view.clear_measurements(); return
         name, ok = QInputDialog.getText(self, "Calibrate", "Preset name (e.g. zoom position):")
         if not ok or not name.strip():
-            return
+            self.view.clear_measurements(); return
         try:
             self.store.add(Calibration(name.strip(), compute_um_per_px(px, um)))
         except ValueError as e:
-            QMessageBox.warning(self, "Calibrate", str(e)); return
+            QMessageBox.warning(self, "Calibrate", str(e)); self.view.clear_measurements(); return
         self.store.set_active(name.strip()); self.store.save()
         self.refresh_calibrations(); self.view.clear_measurements()
 
