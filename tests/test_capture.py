@@ -69,3 +69,39 @@ def test_usb_error_midstream_reconnects():
     t.disconnected.connect(dis.append); t.connected.connect(conn.append)
     t.start(); spin(400); t.stop()
     assert len(got) == 5 and len(dis) == 1 and len(conn) == 2
+
+
+def test_stop_immediately_after_start_terminates():
+    _app()
+    t = CaptureThread(camera_factory=lambda: FakeCam(frames=1000), retry_s=0.05)
+    t.start()
+    t.stop()
+    assert t.isFinished()
+
+
+class RaisingCam:
+    """Reads one good frame, then raises an unexpected (non-USB) exception."""
+    def __init__(self):
+        self.n = 0
+        self.serial_number = "S1"
+
+    def read(self):
+        self.n += 1
+        if self.n > 1:
+            raise ValueError("bad")
+        return True, np.zeros((480, 640, 3), np.uint8), 0
+
+    def release(self):
+        pass
+
+
+def test_unexpected_exception_from_read_is_reported():
+    _app()
+    cams = [RaisingCam(), FakeCam(frames=3)]
+    t = CaptureThread(camera_factory=lambda: cams.pop(0), retry_s=0.05)
+    dis, conn = [], []
+    t.disconnected.connect(dis.append)
+    t.connected.connect(conn.append)
+    t.start(); spin(300); t.stop()
+    assert len(dis) == 1 and "capture error" in dis[0]
+    assert len(conn) == 2
