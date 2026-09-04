@@ -267,11 +267,11 @@ class MainWindow(QMainWindow):
     def _finish_calibration(self) -> None:
         if not self._calibrating:
             return
-        self.view.measurementsChanged.disconnect(self._finish_calibration)
-        self._calibrating = False
         m = self.view.measurements()
         if not m or m[-1]["type"] != "line":
-            return
+            return                                   # spurious emission: stay armed
+        self.view.measurementsChanged.disconnect(self._finish_calibration)
+        self._calibrating = False
         px = m[-1]["value_px"]
         um, ok = QInputDialog.getDouble(self, "Calibrate", f"Line is {px:.1f} px. Known length in µm:", 1000.0, 0.001, 1e9, 3)
         if not ok:

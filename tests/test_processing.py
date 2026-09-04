@@ -15,7 +15,6 @@ def test_default_rotation_is_90():
 def test_identity_returns_equal_copy():
     f = frame()
     p = Params(rotation=0)
-    assert p.is_identity()
     out = apply(f, p)
     assert out is not f and np.array_equal(out, f)
 

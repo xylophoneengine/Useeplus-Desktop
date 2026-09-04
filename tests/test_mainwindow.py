@@ -123,3 +123,13 @@ def test_param_change_while_frozen_reprocesses_frozen_frame(tmp_path):
     w.freeze_cb.setChecked(True)
     w.brightness.setValue(50)
     assert w.last_frame[0, 0, 0] == 150
+
+
+def test_calibration_wizard_survives_dropdown_change(tmp_path):
+    w, store = make_win(tmp_path)
+    store.add(Calibration("4x", 2.0)); w.refresh_calibrations()
+    w.on_frame(frame(), 0)
+    w.start_calibration()
+    w.cal_combo.setCurrentIndex(1)         # emits measurementsChanged via set_calibration
+    assert w._calibrating                  # wizard still armed
+    w._cancel_calibration()

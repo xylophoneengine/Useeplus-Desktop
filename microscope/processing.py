@@ -20,9 +20,6 @@ class Params:
     gamma: float = 1.0                 # 0.3..3.0
     sharpen: float = 0.0               # 0..2, unsharp-mask amount
 
-    def is_identity(self) -> bool:
-        return self == Params(rotation=0)
-
     def to_dict(self) -> dict:
         return asdict(self)
 
