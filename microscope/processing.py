@@ -7,7 +7,7 @@ from functools import lru_cache
 import cv2
 import numpy as np
 
-DEFAULT_ROTATION = 90  # sensor is mounted sideways; flip to 270 here if the smoke test shows it upside down
+DEFAULT_ROTATION = 180  # sensor is mounted upside-down (verified on a Wadeo unit 2026-09-04); landscape 640x480
 
 
 @dataclass

@@ -33,8 +33,8 @@ def frame(v=0):
 def test_frame_is_processed_rotated_and_displayed(tmp_path):
     w, _ = make_win(tmp_path)
     w.on_frame(frame(10), 0)
-    assert w.last_frame.shape == (640, 480, 3)          # default rotation 90
-    assert w.view.sceneRect().width() == 480 and w.view.sceneRect().height() == 640
+    assert w.last_frame.shape == (480, 640, 3)          # default rotation 180 keeps landscape
+    assert w.view.sceneRect().width() == 640 and w.view.sceneRect().height() == 480
 
 
 def test_snapshot_writes_png_and_sidecar(tmp_path):
@@ -45,7 +45,7 @@ def test_snapshot_writes_png_and_sidecar(tmp_path):
     assert p.exists() and p.suffix == ".png"
     side = json.loads(p.with_suffix(".json").read_text())
     assert side["calibration"] == {"name": "4x", "um_per_px": 2.0}
-    assert side["params"]["rotation"] == 90 and side["measurements"] == []
+    assert side["params"]["rotation"] == 180 and side["measurements"] == []
 
 
 def test_button_rising_edge_triggers_one_snapshot(tmp_path):

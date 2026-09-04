@@ -7,9 +7,9 @@ def frame():
     return rng.integers(0, 256, (480, 640, 3), dtype=np.uint8)
 
 
-def test_default_rotation_is_90():
-    assert DEFAULT_ROTATION == 90
-    assert Params().rotation == 90
+def test_default_rotation_is_180():
+    assert DEFAULT_ROTATION == 180
+    assert Params().rotation == 180
 
 
 def test_identity_returns_equal_copy():

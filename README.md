@@ -13,7 +13,7 @@ adjustments — on macOS, without kernel extensions or `sudo`.
 |---|---|
 | USB ID | `2ce3:3828` "Geek szitman" / "supercamera" (also `0329:2022`) |
 | Class | **Not UVC.** Enumerates as an Apple iAP accessory; interface 1 carries the proprietary `com.useeplus.protocol` |
-| Image | JPEG 640×480, ~16.5 fps, sensor mounted sideways (the app rotates by default) |
+| Image | JPEG 640×480, ~16.5 fps, sensor mounted upside-down (the app rotates 180° by default; adjustable) |
 | Controls | None over USB (confirmed by [static analysis of the UseePlus APK](docs/re/useeplus-apk-findings.md)). LED brightness is a physical dial; the focus wheel has exactly **two** in-focus positions (low and high magnification) — a fixed lens with two conjugate object planes, not a zoom. Device button = snapshot; long-press switches lens on dual-lens variants |
 | Verified | firmware 1.00, macOS 26 (Apple Silicon), 2026-09-04 |
 
