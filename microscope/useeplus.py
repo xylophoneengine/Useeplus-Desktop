@@ -31,6 +31,8 @@ JPEG_SOI = b"\xff\xd8"
 JPEG_EOI = b"\xff\xd9"
 BUTTON_FLAG = 0x02
 RESOLUTION = (640, 480)
+RESET_SETTLE_S = 0.4    # after dev.reset(): let the device re-enumerate before re-opening
+RETRY_BACKOFF_S = 1.5
 HOMEBREW_DYLIB = "/opt/homebrew/lib/libusb-1.0.dylib"
 
 
@@ -125,9 +127,30 @@ class Camera:
             raise RuntimeError(f"index {self._index} out of range ({len(devs)} found)")
         return devs[self._index]
 
+    @staticmethod
+    def _reset(dev) -> None:
+        """Reset and drop the handle; the caller must re-find the device afterwards.
+
+        The iAP init write only succeeds on a freshly reset device: without this the
+        first `MAGIC_INIT` write to EP 0x02 always times out (~1.1 s) and the open
+        only succeeds on the next attempt, after the old retry path happened to reset
+        the device as a side effect. Doing it up front makes the first attempt work
+        (verified on 2ce3:3828: 3.4 s -> ~1.0 s).
+        """
+        try:
+            dev.reset()
+        except Exception:
+            pass
+        usb.util.dispose_resources(dev)
+        time.sleep(RESET_SETTLE_S)
+
     def _open(self, attempts: int = 3) -> None:
         last = None
-        for _ in range(attempts):
+        for attempt in range(attempts):
+            self._dev = None
+            if attempt:
+                time.sleep(RETRY_BACKOFF_S)
+            self._reset(self._find())      # invalidates the handle -> re-find below
             dev = self._find()
             self._dev = dev
             try:
@@ -135,13 +158,11 @@ class Camera:
                 return
             except usb.core.USBError as e:
                 last = e
-                try:
-                    dev.reset()
-                except Exception:
-                    pass
                 usb.util.dispose_resources(dev)
-                time.sleep(1.5)
-        raise RuntimeError(f"could not open device after {attempts} attempts: {last}")
+                self._dev = None           # handle disposed; nothing left to release
+        raise RuntimeError(
+            f"could not open device after {attempts} attempts: {last} "
+            "(if the device is plugged in and lit, another process may be holding it)")
 
     def _init_device(self, dev) -> None:
         for intf in (0, 1):
@@ -233,4 +254,8 @@ class Camera:
         self.release()
 
     def __del__(self):
-        self.release()
+        # Deliberately empty. Calling into libusb from __del__ runs during interpreter
+        # shutdown or GC re-entry and aborts the process ("Assertion failed:
+        # (refcnt >= 2), function libusb_ref_device"). The OS reclaims the handle on
+        # exit; use `with Camera() as cam:` or call release() for a deterministic close.
+        pass
