@@ -1,5 +1,7 @@
 # microscope — desktop app for the Wadeo / "supercamera" USB-C microscope
 
+**Status: working prototype** (macOS, verified on real hardware 2026-09-04).
+
 A PySide6 app for the cheap USB-C digital microscopes (Wadeo and many rebrands) that
 officially only work with the **UseePlus** phone app. Live view, snapshots, MP4
 recording, µm measurements with named calibrations, scale bar, and software image
@@ -12,7 +14,7 @@ adjustments — on macOS, without kernel extensions or `sudo`.
 | USB ID | `2ce3:3828` "Geek szitman" / "supercamera" (also `0329:2022`) |
 | Class | **Not UVC.** Enumerates as an Apple iAP accessory; interface 1 carries the proprietary `com.useeplus.protocol` |
 | Image | JPEG 640×480, ~16.5 fps, sensor mounted sideways (the app rotates by default) |
-| Controls | None over USB. LED brightness and zoom are physical knobs. Device button = snapshot; long-press switches lens on dual-lens variants |
+| Controls | None over USB (confirmed by [static analysis of the UseePlus APK](docs/re/useeplus-apk-findings.md)). LED brightness is a physical dial; the focus wheel has exactly **two** in-focus positions (low and high magnification) — a fixed lens with two conjugate object planes, not a zoom. Device button = snapshot; long-press switches lens on dual-lens variants |
 | Verified | firmware 1.00, macOS 26 (Apple Silicon), 2026-09-04 |
 
 Protocol: after `FF 55 FF 55 EE 10` on the iAP endpoint and `BB AA 05 00 00` on the
@@ -44,9 +46,10 @@ recordings go to `~/Pictures/Microscope` by default.
 ## Features
 
 - **Adjust**: rotation / flip, brightness, contrast, gamma, sharpen, freeze.
-- **Calibrate**: put a stage micrometer or ruler under the lens, click *Calibrate…*, draw a line
-  over a known length, enter it in µm, name the preset (one per zoom-ring position).
-  The scale bar appears whenever a preset is active.
+- **Calibrate**: put calipers or a stage micrometer under the lens, click *Calibrate…*, draw a line
+  over a known length, enter it in µm, name the preset. Make one preset per focus position
+  ("low", "high") and pick it from the dropdown. The scale bar appears whenever a preset is active.
+- **Zoom**: mouse wheel zooms the *image*; magnification itself is optical (focus position + working distance).
 - **Measure**: line, polyline (double-click to finish), rectangle area, angle (three clicks);
   labels in µm/mm when calibrated, px otherwise. *Pan* tool: left-drag pans, wheel zooms.
 - **Capture**: Snapshot / Record buttons; the device's hardware button also takes a snapshot.
@@ -61,3 +64,9 @@ recordings go to `~/Pictures/Microscope` by default.
 
 Linux should work with a udev rule granting access to `2ce3:3828`; Windows needs a
 libusb driver (Zadig). Neither is tested. Design notes: `docs/superpowers/specs/`.
+
+## License
+
+GPL-3.0-or-later — see `LICENSE`. `microscope/useeplus.py` is derived from
+[ProbeView](https://github.com/echase/ProbeView) (MIT, © 2026 Everitt Chase); the MIT notice is
+kept in that file and in `third_party/probeview/LICENSE`.
