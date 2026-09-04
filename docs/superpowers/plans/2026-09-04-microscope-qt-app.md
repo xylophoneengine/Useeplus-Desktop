@@ -2011,10 +2011,9 @@ if __name__ == "__main__":
 Run: `/opt/pyenvs/microscope/bin/python -m pytest -v`
 Expected: all pass (≈33 tests). The suite must complete with no USB device attached.
 
-- [ ] **Step 5: Smoke launch headless**
+- [ ] **Step 5: Smoke launch headless** (orchestrator runs this — it opens the device if attached)
 
-Run: `QT_QPA_PLATFORM=offscreen timeout 5 /opt/pyenvs/microscope/bin/python -c "from PySide6.QtCore import QTimer; from PySide6.QtWidgets import QApplication; import microscope.__main__ as m; QTimer.singleShot(1500, lambda: QApplication.instance().quit()); import sys; sys.exit(m.main())"; echo exit=$?`
-Expected: `exit=0` (window builds, capture thread reports "No supercamera device" and retries, quits cleanly). Note: on macOS `timeout` may be `gtimeout`; if absent just run without it — the singleShot quits.
+Run `QT_QPA_PLATFORM=offscreen /opt/pyenvs/microscope/bin/python scripts/e2e_smoke.py`: the script builds `QApplication`, `CaptureThread`, `MainWindow`, connects the capture signals to a list, schedules `QTimer.singleShot(5000, app.quit)` AFTER the app exists, runs `app.exec()`, prints events / frame count / `cap.isFinished()` and exits 0. (A `QTimer.singleShot` created before `QApplication` never fires — the original wording of this step hung for that reason.)
 
 - [ ] **Step 6: Commit**
 
