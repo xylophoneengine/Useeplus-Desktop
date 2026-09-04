@@ -64,8 +64,6 @@ class MicroscopeView(QGraphicsView):
             self._frame_size = size
             self._scene.setSceneRect(QRectF(0, 0, *size))
             self._update_scale_bar()
-            self._fitted = False
-        if not self._fitted:
             self.fit()
 
     def fit(self) -> None:
@@ -260,8 +258,8 @@ class MicroscopeView(QGraphicsView):
         e.accept()
 
     def mouseDoubleClickEvent(self, e) -> None:
-        if e.button() == Qt.MouseButton.LeftButton and self.tool == Tool.POLYLINE:
-            self.tool_double_click(*self._img(e))
+        if e.button() == Qt.MouseButton.LeftButton and self.tool == Tool.POLYLINE and self._pts:
+            self.tool_double_click(*self._pts[-1])
         e.accept()
 
     def wheelEvent(self, e) -> None:

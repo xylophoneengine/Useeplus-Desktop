@@ -81,3 +81,13 @@ def test_scale_bar_appears_when_calibration_set_before_first_frame():
     assert not v.scale_bar_visible()              # no frame yet
     v.set_frame(QImage(480, 640, QImage.Format.Format_RGB888))
     assert v.scale_bar_visible() and v.scale_bar_label() == "50 µm"
+
+
+def test_live_frames_do_not_reset_user_zoom():
+    v = make_view()                      # first frame → fitted
+    v.scale(2.0, 2.0); v._fitted = False  # what wheelEvent does
+    m11 = v.transform().m11()
+    v.set_frame(QImage(480, 640, QImage.Format.Format_RGB888))   # same size: must not refit
+    assert v.transform().m11() == m11
+    v.set_frame(QImage(640, 480, QImage.Format.Format_RGB888))   # size change: refit allowed
+    assert v._fitted
