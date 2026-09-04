@@ -29,7 +29,7 @@ from [echase/ProbeView](https://github.com/echase/ProbeView) (MIT). Related work
 
 ```bash
 brew install libusb
-conda create -p /opt/pyenvs/microscope python=3.12
+conda create -p /opt/pyenvs/microscope python=3.12   # any writable prefix works
 /opt/pyenvs/microscope/bin/pip install -e ".[dev]"
 ```
 

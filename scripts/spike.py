@@ -1,13 +1,14 @@
-import time, sys, cv2, numpy as np
-import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "third_party" / "probeview"))
-from upp_camera import Camera, list_devices
+"""60-frame stream check against the attached device, using this project's driver."""
+import time, cv2, numpy as np
+from microscope.useeplus import Camera, list_devices
 print("devices:", list_devices())
 with Camera() as cam:
     print("serial:", cam.serial_number, "res:", cam.resolution)
     t0 = time.time(); n = 0; bad = 0; sizes = []
     while n < 60 and time.time() - t0 < 15:
-        j = cam.read_jpeg()
-        if j is None: bad += 1; continue
+        r = cam.read_jpeg()
+        if r is None: bad += 1; continue
+        j, _flags = r
         img = cv2.imdecode(np.frombuffer(j, np.uint8), cv2.IMREAD_COLOR)
         if img is None: bad += 1; continue
         n += 1; sizes.append(len(j))
