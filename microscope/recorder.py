@@ -19,6 +19,8 @@ class Recorder:
         return self._w is not None
 
     def start(self, path: Path, size: tuple[int, int], fps: float = 16.0) -> None:
+        if self._w is not None:   # restarting: finalize the previous file first
+            self.stop()
         # ponytail: constant-fps mux; switch to an ffmpeg pipe with real timestamps if A/V drift matters
         w = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, size)
         if not w.isOpened():
